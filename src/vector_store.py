@@ -7,6 +7,21 @@ from langchain_core.documents import Document
 from src.embeddings import TransformerEmbeddingModel
 from src.bm25_index import BM25encoder
 from src.fusion import rrf
+import logging
+
+# level of logger
+
+# DUBUG
+# INFO
+# WARING
+# ERROR
+# CRITICAL
+
+logging.basicConfig(filename="log_tracker.text",
+                    filemode= "a",
+                    level = logging.DEBUG,
+                    format="%(asctime)s - %(levelname)s - %(message)s",
+                    datefmt="%y-%m-%d %H %M %S")
 
 
 
@@ -28,55 +43,54 @@ class PineconeVectorDB:
         try:
             self.transformerembeddingmodel = TransformerEmbeddingModel()
             self.bm25encoder = BM25encoder()
-
             load_dotenv()
 
             if os.getenv(pinecone_api_key):
                 self.__pinecone_client = Pinecone(api_key = os.getenv(pinecone_api_key))
                 self.__pinecone_Create_index()
+
             else:
-                raise API_KEY_ERROR("this is no pinecone_api_key")
+                logging.error("Their is no api-key ")
+                raise API_KEY_ERROR("This is no pinecone_api_key")
 
         except Exception as e:
-            print(f"ERROR : {e}")
+            logging.error(f"{e}")
             raise e
         
 
     def __pinecone_Create_index(self):
 
         if not self.__pinecone_client.has_index(self.__index_name):
+
             self.__pinecone_client.create_index(name = self.__index_name,
                                               vector_type = "dense",
                                               dimension=384,
                                               metric="dotproduct",
                                               spec=ServerlessSpec(cloud="aws",
                                                                   region="us-east-1"))
-            print(f"{self.__index_name}  have created successfully")
+            logging.info(f"{self.__index_name}  have created successfully")
             
         else:
-            print(f"{self.__index_name} already have created successfully.")
+            logging.info(f"{self.__index_name} already have created successfully.")
 
         if self.__index is None:
             self.__index = self.__pinecone_client.Index(name = self.__index_name)
 
 
 
-    def pinecone_Upsert_data(self, document: List[Document]):
+    def pinecone_upsert_data(self, document: List[Document]):
 
         try:
-            if not document:
-                raise ValueError("No document No process")
-            
-            if not self.__namespace:
-                raise ValueError("give some namespace to store in your index.")
-            
+
             if not isinstance(document[0], Document):
+                logging.error("No document data")
                 raise ValueError("No document data. Then no process")
             
             dense_vector = self.transformerembeddingmodel.document_embedding(document)
             sparse_vector = self.bm25encoder.bm25_DocumentEncoder(document)
 
             if len(dense_vector) != len(sparse_vector):
+                logging.error(f"dense vector len {len(dense_vector)} != sparse vector len {len(sparse_vector)}")
                 raise ValueError(f"dense vector len {len(dense_vector)} != sparse vector len {len(sparse_vector)}.")
             
             records : List[Dict[str,Any]] = []
@@ -91,19 +105,26 @@ class PineconeVectorDB:
                     })
                 
             self.__index.upsert(vectors = records , namespace = self.__namespace)
+            logging.info("data have index succussfully")
 
         except Exception as e:
-            print(f"ERROR : {e}")
+            logging.error(f"{e}")
             raise e
 
 
 
-    def pinecone_QuerySearch(self, query: str, top_k: int = 10, include_values: bool = False, include_metadata: bool = True , rrf_topk: int = 5):
+    def pinecone_QuerySearch(self, query: str, 
+                             top_k: int = 10, 
+                             include_values: bool = False, 
+                             include_metadata: bool = True):
 
         try:
 
             dense_vector = self.transformerembeddingmodel.query_embedding(query)
             sparse_vector = self.bm25encoder.bm25_QueryEncoder(query)
+
+            logging.info("query text have convert into dense and sparse vectors")
+
 
             dense_retrieve = self.__index.query(
                 namespace = self.__namespace,
@@ -112,6 +133,9 @@ class PineconeVectorDB:
                 include_metadata = include_metadata,
                 include_values = include_values
             )
+
+            logging.info("dense vector document have retrieved succussfully")
+
 
             dump_dense_vector = [0] * 384
 
@@ -124,21 +148,21 @@ class PineconeVectorDB:
                 include_metadata = include_metadata
             )
 
-            both_retrieve : List[List[Any]] = []
+            logging.info("sparse vector document have retrieved succussfully")
+
+            both_vector_retrieve : List[List[Any]] = []
 
             d = [{"id" : d.id,"text":d.metadata["text"]} 
                  for d in dense_retrieve.matches] 
-            both_retrieve.append(d)
+            both_vector_retrieve.append(d)
 
             s = [{"id" : s.id, "score": s.score,"text":s.metadata["text"]} 
                  for s in sparse_retrieve.matches]
-            both_retrieve.append(s)
-
-            # RRF
-            rrf_result = rrf(both_retrieve , rrf_topk)
-            return rrf_result
+            both_vector_retrieve.append(s)
+            
+            return both_vector_retrieve
             
 
         except Exception as e:
-            print(f"ERROR : {e}")
+            logging.error(f"{e}")
             raise e
