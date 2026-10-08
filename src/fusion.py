@@ -29,3 +29,5 @@ def rrf(vectors_result: List[List[Any]],
     except Exception as e:
         print(f"ERROR : {e}")
         raise e
+
+

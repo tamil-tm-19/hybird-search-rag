@@ -4,6 +4,21 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from dotenv import load_dotenv
+import logging
+
+# level of logger
+
+# DUBUG
+# INFO
+# WARING
+# ERROR
+# CRITICAL
+
+logging.basicConfig(filename="log_tracker.text",
+                    filemode= "a",
+                    level = logging.DEBUG,
+                    format="%(asctime)s - %(levelname)s - %(message)s",
+                    datefmt="%y-%m-%d %H %M %S")
 
 
 class LLMModelNotLoaded(Exception):
@@ -27,14 +42,16 @@ class LLM:
             get_apikey = os.getenv(groq_api_key)
 
             if not get_apikey:
+                logging.error("No groq api-key found in .env file. Please set your groq api-key in .env")
                 raise ValueError("No groq api-key found in .env file. Please set your groq api-key in .env")
 
             self.llm_model = ChatGroq(model = model_name,
                                       temperature = temperature,
                                       api_key = get_apikey)
+            logging.info("LLM model have loaded")
 
         except Exception as e:
-            print(f"ERROR : {e}")
+            logging.error(f"ERROR : {e}")
             raise e
             
     def llm_Generator(self, query: str, document: List[str]):
@@ -55,11 +72,8 @@ class LLM:
 
         try:
             if not self.llm_model:
+                logging.error("LLM model not loaded may no llm api-key or else give proper LLM model name")
                 raise LLMModelNotLoaded("LLM model not loaded may no llm api-key or else give proper LLM model name")
-            
-            '''prompt_template = ChatPromptTemplate.from_messages(messages=[
-                SystemMessagePromptTemplate.from_template(RAG_SYSTEM_PROMPT),
-                HumanMessagePromptTemplate.from_template("QUESTION: {query} \n\nCONTEXT : \n{context}\n\n ANSWER")])'''
 
             prompt_template = ChatPromptTemplate.from_messages([
                     SystemMessagePromptTemplate.from_template(RAG_SYSTEM_PROMPT),
@@ -67,15 +81,14 @@ class LLM:
                 ])
                 
 
-
-            #prompt_format = prompt_template.format_messages(query = query , context = document)
-
             chain = prompt_template | self.llm_model | self.stroutputparser
+            logging.info("chain have started")
 
             generator_final_result = chain.invoke({"query":query,"context":document})
+            logging.info("finally got the answer from llm")
 
             return generator_final_result
 
         except Exception as e:
-            print(f"ERROR {e}")
+            logging.error(f"ERROR {e}")
             raise e
