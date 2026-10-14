@@ -24,7 +24,7 @@ class ReRankerModelNotFounded(Exception):
 class RerankingModel:
 
     def __init__(self, 
-                 api_key: str,
+                 api_key: str = "COHERE_API_KEY",
                  model_name: str = "rerank-v4.0-pro"):
 
         self.model_name = model_name

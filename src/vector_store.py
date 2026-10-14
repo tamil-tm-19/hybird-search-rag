@@ -34,7 +34,7 @@ class PineconeVectorDB:
     def __init__(self,
                 index_name: str,
                 namespace: str,
-                pinecone_api_key: str):
+                pinecone_api_key: str = "PINECONE_API_KEY"):
 
         self.__index_name = index_name
         self.__namespace = namespace

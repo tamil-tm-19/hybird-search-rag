@@ -28,7 +28,7 @@ class DocumentLoader:
         self.file_path = file_or_dir_path
 
 
-    def pdf_parse(self):
+    def pdf_file_parse(self):
     
             if not os.path.exists(self.file_path):
                 logging.error(f"PDF file not found: {self.file_path}")

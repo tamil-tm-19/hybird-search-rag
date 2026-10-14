@@ -21,7 +21,7 @@ logging.basicConfig(filename="log_tracker.text",
 
 class BM25encoder:
 
-    def __init__(self, bm25_data_store: str):
+    def __init__(self, bm25_data_store: str = "transformer_corpus.json"):
 
         try:
             self.bm25encoder = BM25Encoder()
